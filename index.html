@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#111827" />
+  <title>Rental Walkthrough</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">PROPERTY INSPECTIONS</div>
+      <h1>Rental Walkthrough</h1>
+    </div>
+    <button id="installBtn" class="ghost hidden">Install</button>
+  </header>
+
+  <main class="container">
+    <section id="homeView">
+      <div class="card hero">
+        <div>
+          <h2>Move-in and move-out reports without the paperwork.</h2>
+          <p>Create a property, walk room-by-room, take photos, add notes, collect signatures, and print a polished report.</p>
+        </div>
+        <button id="newInspectionBtn" class="primary large">+ New inspection</button>
+      </div>
+
+      <div class="section-head">
+        <h2>Saved inspections</h2>
+        <button id="clearAllBtn" class="danger-link">Clear all</button>
+      </div>
+      <div id="inspectionList" class="stack"></div>
+      <div id="emptyState" class="empty">
+        <div class="empty-icon">🏠</div>
+        <h3>No inspections yet</h3>
+        <p>Your walkthroughs will be saved on this device.</p>
+      </div>
+    </section>
+
+    <section id="editorView" class="hidden">
+      <div class="section-head">
+        <button id="backBtn" class="ghost">← Inspections</button>
+        <div class="actions">
+          <button id="saveBtn" class="ghost">Save</button>
+          <button id="reportBtn" class="primary">Report / PDF</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Inspection details</h2>
+        <div class="grid two">
+          <label>Property address
+            <input id="addressInput" placeholder="123 Main St, City, State" />
+          </label>
+          <label>Inspection type
+            <select id="typeInput">
+              <option>Move-In</option>
+              <option>Move-Out</option>
+              <option>Routine</option>
+              <option>Pre-Lease</option>
+            </select>
+          </label>
+          <label>Tenant
+            <input id="tenantInput" placeholder="Tenant name" />
+          </label>
+          <label>Inspector / manager
+            <input id="inspectorInput" placeholder="Your name" />
+          </label>
+          <label>Inspection date
+            <input id="dateInput" type="date" />
+          </label>
+          <label>Overall condition
+            <select id="overallInput">
+              <option>Good</option>
+              <option>Fair</option>
+              <option>Needs Attention</option>
+            </select>
+          </label>
+        </div>
+        <label>General notes
+          <textarea id="generalNotes" placeholder="Keys, utilities, meter readings, existing issues, etc."></textarea>
+        </label>
+      </div>
+
+      <div class="section-head">
+        <h2>Rooms</h2>
+        <button id="addRoomBtn" class="ghost">+ Add room</button>
+      </div>
+      <div id="roomsContainer" class="stack"></div>
+
+      <div class="card">
+        <h2>Signatures</h2>
+        <div class="grid two">
+          <div>
+            <label>Tenant signature</label>
+            <canvas id="tenantSig" class="signature" width="700" height="220"></canvas>
+            <div class="sig-actions">
+              <button class="ghost small" data-clear-sig="tenantSig">Clear</button>
+            </div>
+          </div>
+          <div>
+            <label>Inspector signature</label>
+            <canvas id="inspectorSig" class="signature" width="700" height="220"></canvas>
+            <div class="sig-actions">
+              <button class="ghost small" data-clear-sig="inspectorSig">Clear</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-actions">
+        <button id="saveBottomBtn" class="ghost large">Save walkthrough</button>
+        <button id="reportBottomBtn" class="primary large">Generate report</button>
+      </div>
+    </section>
+
+    <section id="reportView" class="hidden">
+      <div class="section-head no-print">
+        <button id="reportBackBtn" class="ghost">← Back</button>
+        <div class="actions">
+          <button id="printBtn" class="primary">Print / Save PDF</button>
+        </div>
+      </div>
+      <article id="reportContent" class="report"></article>
+    </section>
+  </main>
+
+  <template id="roomTemplate">
+    <div class="card room-card">
+      <div class="room-head">
+        <input class="room-name" value="Room" />
+        <button class="danger-link remove-room">Remove</button>
+      </div>
+      <div class="grid three">
+        <label>Condition
+          <select class="room-condition">
+            <option>Good</option>
+            <option>Fair</option>
+            <option>Damaged</option>
+            <option>Needs Cleaning</option>
+          </select>
+        </label>
+        <label>Cleanliness
+          <select class="room-clean">
+            <option>Clean</option>
+            <option>Minor Cleaning</option>
+            <option>Needs Cleaning</option>
+          </select>
+        </label>
+        <label>Working order
+          <select class="room-working">
+            <option>Yes</option>
+            <option>No</option>
+            <option>N/A</option>
+          </select>
+        </label>
+      </div>
+      <label>Notes
+        <textarea class="room-notes" placeholder="Damage, stains, missing items, appliance condition, etc."></textarea>
+      </label>
+
+      <div class="photo-toolbar">
+        <label class="primary file-button">📷 Add photos
+          <input class="photo-input" type="file" accept="image/*" capture="environment" multiple />
+        </label>
+        <span class="photo-help">Photos stay stored on this device.</span>
+      </div>
+      <div class="photo-grid"></div>
+    </div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
