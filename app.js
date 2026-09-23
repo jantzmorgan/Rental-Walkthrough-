@@ -34,11 +34,11 @@ function buildProfessionalPdf(){
   const pageHeader=()=>{
     doc.setFillColor(...blue);doc.rect(0,0,W,56,"F");
     txt("RENTAL INSPECTION REPORT",M,35,16,"bold",[255,255,255]);
-    if(current.address)txt(pdfSafe(current.address),W-M,35,9,"normal",[230,239,247]),doc.text(pdfSafe(current.address),W-M,35,{align:"right"});
+    if(current.address){doc.setFont("helvetica","normal");doc.setFontSize(9);doc.setTextColor(230,239,247);doc.text(pdfSafe(current.address),W-M,35,{align:"right"})}
   };
   const footer=()=>{
     const p=doc.internal.getCurrentPageInfo().pageNumber;
-    line(M,H-34,W-M,H-34);txt("Rental Walkthrough",M,H-18,8,"normal",muted);txt("Page "+p,W-M,H-18,8,"normal",muted);doc.text("Page "+p,W-M,H-18,{align:"right"});
+    line(M,H-34,W-M,H-34);txt("Rental Walkthrough",M,H-18,8,"normal",muted);
   };
   const newPage=()=>{doc.addPage();pageHeader();return 84};
   const ensure=(y,needed)=>y+needed>H-54?newPage():y;
