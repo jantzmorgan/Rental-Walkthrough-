@@ -19,7 +19,131 @@ function sig(canvas){let c=canvas.getContext("2d"),d=false;c.lineWidth=3;c.lineC
 function sigRestore(c,d){let x=c.getContext("2d");x.clearRect(0,0,c.width,c.height);if(d){let im=new Image;im.onload=()=>x.drawImage(im,0,0,c.width,c.height);im.src=d}}
 function report(){sync();save();let rooms=current.rooms.map(r=>'<section class="report-room"><h2>'+esc(r.name)+'</h2><p><strong>Condition:</strong> '+esc(r.condition)+' &nbsp; <strong>Cleanliness:</strong> '+esc(r.clean)+' &nbsp; <strong>Working:</strong> '+esc(r.working)+'</p>'+(r.notes?'<p><strong>Notes:</strong> '+esc(r.notes).replace(/\n/g,"<br>")+"</p>":"")+(r.photos.length?'<div class="report-photos">'+r.photos.map(p=>'<img src="'+p+'" alt="Inspection photo">').join("")+"</div>":"<p><em>No photos added.</em></p>")+"</section>").join("");reportContent.innerHTML='<h1>Rental Inspection Report</h1><div class="sub">'+esc(current.address||"Untitled property")+'</div><div class="report-grid"><div><strong>Inspection type</strong><br>'+esc(current.type)+'</div><div><strong>Date</strong><br>'+esc(current.date)+'</div><div><strong>Tenant</strong><br>'+esc(current.tenant||"—")+'</div><div><strong>Inspector</strong><br>'+esc(current.inspector||"—")+'</div><div><strong>Overall condition</strong><br>'+esc(current.overall)+'</div></div>'+(current.generalNotes?'<p><strong>General notes:</strong><br>'+esc(current.generalNotes).replace(/\n/g,"<br>")+"</p>":"")+rooms+'<section class="report-signatures"><div><img src="'+current.tenantSig+'"><div class="label">Tenant signature</div></div><div><img src="'+current.inspectorSig+'"><div class="label">Inspector signature</div></div></section>';view("report")}
 function loadZip(){return new Promise((ok,no)=>{if(window.JSZip)return ok();let s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
-async function exportZip(){sync();save();try{await loadZip()}catch{return alert("Could not load the export tool. Check your internet connection.")}let z=new JSZip,p=z.folder("photos"),n=0,parts=[];current.rooms.forEach((r,ri)=>{let imgs=[];(r.photos||[]).forEach((src,pi)=>{let m=src.match(/^data:image\/(\w+);base64,(.*)$/);if(!m)return;let ext=m[1]=="jpeg"?"jpg":m[1],rn=(r.name||"room-"+(ri+1)).replace(/[^a-z0-9-_]+/gi,"-"),fn=String(++n).padStart(3,"0")+"-"+rn+"-"+(pi+1)+"."+ext;p.file(fn,m[2],{base64:true});imgs.push('<img src="photos/'+fn+'">')});parts.push("<section><h2>"+esc(r.name)+"</h2><p><b>Condition:</b> "+esc(r.condition)+" &nbsp; <b>Cleanliness:</b> "+esc(r.clean)+" &nbsp; <b>Working:</b> "+esc(r.working)+"</p>"+(r.notes?"<p><b>Notes:</b> "+esc(r.notes).replace(/\n/g,"<br>")+"</p>":"")+'<div class="photos">'+imgs.join("")+"</div></section>")});[["tenant-signature.png",current.tenantSig],["inspector-signature.png",current.inspectorSig]].forEach(x=>{let m=(x[1]||"").match(/^data:image\/png;base64,(.*)$/);if(m)z.file(x[0],m[1],{base64:true})});let h='<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Rental Inspection Report</title><style>body{font-family:Arial;max-width:900px;margin:40px auto;padding:0 20px}section{margin:28px 0}.photos{display:grid;grid-template-columns:1fr 1fr;gap:10px}.photos img{width:100%}@media(max-width:650px){.photos{grid-template-columns:1fr}}</style><h1>Rental Inspection Report</h1><p>'+esc(current.address)+'</p><p><b>Type:</b> '+esc(current.type)+' &nbsp; <b>Date:</b> '+esc(current.date)+'<br><b>Tenant:</b> '+esc(current.tenant)+' &nbsp; <b>Inspector:</b> '+esc(current.inspector)+'<br><b>Overall:</b> '+esc(current.overall)+'</p>'+(current.generalNotes?"<p><b>General notes:</b><br>"+esc(current.generalNotes).replace(/\n/g,"<br>")+"</p>":"")+parts.join("");z.file("inspection-report.html",h);z.file("inspection-data.json",JSON.stringify(current,null,2));let b=await z.generateAsync({type:"blob"}),u=URL.createObjectURL(b),a=document.createElement("a"),safe=(current.address||"rental-inspection").replace(/[^a-z0-9-_]+/gi,"-");a.href=u;a.download=safe+"-"+(current.date||"inspection")+".zip";a.click();setTimeout(()=>URL.revokeObjectURL(u),1500);toast("Exported report + "+n+" photos")}
+function loadPdf(){return new Promise((ok,no)=>{if(window.jspdf?.jsPDF)return ok();let s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js";s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
+function pdfSafe(s){return String(s??"").replace(/\s+/g," ").trim()}
+function pdfImageType(src){let m=String(src||"").match(/^data:image\/(png|jpe?g|webp)/i);if(!m)return"JPEG";let t=m[1].toLowerCase();return t==="png"?"PNG":t==="webp"?"WEBP":"JPEG"}
+function buildProfessionalPdf(){
+  const {jsPDF}=window.jspdf,doc=new jsPDF({orientation:"portrait",unit:"pt",format:"letter",compress:true});
+  const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=44,blue=[28,78,121],light=[241,245,249],dark=[31,41,55],muted=[100,116,139];
+  const line=(x1,y1,x2,y2)=>{doc.setDrawColor(220,226,232);doc.line(x1,y1,x2,y2)};
+  const txt=(t,x,y,size=10,style="normal",color=dark)=>{doc.setFont("helvetica",style);doc.setFontSize(size);doc.setTextColor(...color);doc.text(String(t??""),x,y)};
+  const wrapped=(t,x,y,w,size=10,style="normal",lh=14,color=dark)=>{
+    doc.setFont("helvetica",style);doc.setFontSize(size);doc.setTextColor(...color);
+    const lines=doc.splitTextToSize(String(t||"—"),w);doc.text(lines,x,y);return y+Math.max(1,lines.length)*lh;
+  };
+  const pageHeader=()=>{
+    doc.setFillColor(...blue);doc.rect(0,0,W,56,"F");
+    txt("RENTAL INSPECTION REPORT",M,35,16,"bold",[255,255,255]);
+    if(current.address)txt(pdfSafe(current.address),W-M,35,9,"normal",[230,239,247]),doc.text(pdfSafe(current.address),W-M,35,{align:"right"});
+  };
+  const footer=()=>{
+    const p=doc.internal.getCurrentPageInfo().pageNumber;
+    line(M,H-34,W-M,H-34);txt("Rental Walkthrough",M,H-18,8,"normal",muted);txt("Page "+p,W-M,H-18,8,"normal",muted);doc.text("Page "+p,W-M,H-18,{align:"right"});
+  };
+  const newPage=()=>{doc.addPage();pageHeader();return 84};
+  const ensure=(y,needed)=>y+needed>H-54?newPage():y;
+
+  pageHeader();
+  let y=92;
+  txt("Property Inspection",M,y,25,"bold",dark);y+=26;
+  y=wrapped(current.address||"Untitled property",M,y,W-M*2,13,"normal",18,muted)+10;
+
+  doc.setFillColor(...light);doc.roundedRect(M,y,W-M*2,108,8,8,"F");
+  const colW=(W-M*2)/2, rows=[
+    ["Inspection type",current.type||"—","Date",current.date||"—"],
+    ["Tenant",current.tenant||"—","Inspector",current.inspector||"—"],
+    ["Overall condition",current.overall||"—","Rooms inspected",String(current.rooms.length)]
+  ];
+  rows.forEach((r,i)=>{let yy=y+24+i*31;txt(r[0].toUpperCase(),M+16,yy,7,"bold",muted);txt(pdfSafe(r[1]),M+16,yy+13,10,"bold",dark);txt(r[2].toUpperCase(),M+16+colW,yy,7,"bold",muted);txt(pdfSafe(r[3]),M+16+colW,yy+13,10,"bold",dark)});
+  y+=128;
+  if(current.generalNotes){
+    txt("GENERAL NOTES",M,y,10,"bold",blue);y+=18;
+    y=wrapped(current.generalNotes,M,y,W-M*2,10,"normal",14,dark)+8;
+  }
+  y=ensure(y,64);txt("ROOM SUMMARY",M,y,10,"bold",blue);y+=18;
+  current.rooms.forEach((r,i)=>{
+    y=ensure(y,34);
+    if(i)line(M,y-7,W-M,y-7);
+    txt(r.name||"Room",M,y,11,"bold",dark);
+    txt([r.condition,r.clean,r.working].filter(Boolean).join("  •  "),W-M,y,9,"normal",muted);
+    doc.text([r.condition,r.clean,r.working].filter(Boolean).join("  •  "),W-M,y,{align:"right"});
+    y+=20;
+  });
+  footer();
+
+  current.rooms.forEach((r,ri)=>{
+    doc.addPage();pageHeader();let y=86;
+    txt(String(ri+1).padStart(2,"0"),M,y,10,"bold",blue);txt(r.name||"Room",M+30,y,20,"bold",dark);y+=22;
+    line(M,y,W-M,y);y+=20;
+    const info=[["Condition",r.condition],["Cleanliness",r.clean],["Working",r.working],["Photos",String((r.photos||[]).length)]];
+    const infoW=(W-M*2)/4;
+    info.forEach((v,i)=>{txt(v[0].toUpperCase(),M+i*infoW,y,7,"bold",muted);txt(pdfSafe(v[1]||"—"),M+i*infoW,y+14,10,"bold",dark)});
+    y+=44;
+    if(r.notes){
+      txt("NOTES",M,y,9,"bold",blue);y+=16;
+      y=wrapped(r.notes,M,y,W-M*2,10,"normal",14,dark)+12;
+    }
+    if(!(r.photos||[]).length){
+      y=ensure(y,60);doc.setFillColor(...light);doc.roundedRect(M,y,W-M*2,54,6,6,"F");txt("No photos added for this room.",M+16,y+31,10,"normal",muted);
+    }else{
+      txt("PHOTOS",M,y,9,"bold",blue);y+=14;
+      const gap=12,boxW=(W-M*2-gap)/2,boxH=178;
+      r.photos.forEach((src,pi)=>{
+        const col=pi%2;
+        if(col===0)y=ensure(y,boxH+26);
+        const x=M+col*(boxW+gap);
+        doc.setFillColor(248,250,252);doc.roundedRect(x,y,boxW,boxH,5,5,"F");
+        try{
+          const props=doc.getImageProperties(src),scale=Math.min((boxW-12)/props.width,(boxH-24)/props.height),iw=props.width*scale,ih=props.height*scale;
+          doc.addImage(src,pdfImageType(src),x+(boxW-iw)/2,y+6,iw,ih,undefined,"FAST");
+        }catch{}
+        txt("Photo "+(pi+1),x+8,y+boxH-7,7,"normal",muted);
+        if(col===1||pi===r.photos.length-1)y+=boxH+16;
+      });
+    }
+    footer();
+  });
+
+  if(current.tenantSig||current.inspectorSig){
+    doc.addPage();pageHeader();let y=92;
+    txt("Signatures",M,y,22,"bold",dark);y+=34;
+    [["Tenant signature",current.tenantSig,current.tenant||""],["Inspector signature",current.inspectorSig,current.inspector||""]].forEach(([label,src,name],i)=>{
+      const x=i===0?M:M+266;
+      txt(label.toUpperCase(),x,y,8,"bold",muted);
+      doc.setDrawColor(220,226,232);doc.roundedRect(x,y+12,240,110,6,6);
+      if(src)try{doc.addImage(src,"PNG",x+10,y+22,220,82,undefined,"FAST")}catch{}
+      txt(name||" ",x,y+142,10,"bold",dark);line(x,y+148,x+240,y+148);
+    });
+    footer();
+  }
+
+  const pages=doc.getNumberOfPages();
+  for(let i=1;i<=pages;i++){doc.setPage(i);doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(...muted);doc.text("Page "+i+" of "+pages,W-M,H-18,{align:"right"})}
+  return doc.output("arraybuffer");
+}
+function buildExportHtml(photoParts){
+  return '<!doctype html><html><head><meta charset="utf-8"><title>Rental Inspection Report</title><style>@page{size:letter;margin:.55in}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#1f2937;max-width:8.5in;margin:0 auto;padding:36px;background:#fff}header{border-bottom:4px solid #1c4e79;padding-bottom:18px;margin-bottom:24px}h1{margin:0;font-size:30px}h2{color:#1c4e79;border-bottom:1px solid #dbe3ea;padding-bottom:8px;margin-top:30px}.address{font-size:17px;color:#64748b;margin-top:6px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#f1f5f9;padding:18px;border-radius:10px;margin:22px 0}.meta div{line-height:1.45}.notes{border-left:4px solid #1c4e79;padding:2px 0 2px 14px}.photos{display:grid;grid-template-columns:1fr 1fr;gap:12px}.photo{break-inside:avoid}.photo img{width:100%;height:260px;object-fit:contain;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px}.cap{font-size:11px;color:#64748b;margin-top:4px}.room{break-before:auto;break-inside:avoid-page}.status{font-size:13px;color:#475569}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:34px}.sig{border-top:1px solid #94a3b8;padding-top:8px}.sig img{max-width:100%;height:85px;object-fit:contain}@media print{body{padding:0}.room{break-inside:avoid-page}}@media(max-width:650px){.photos,.meta,.signatures{grid-template-columns:1fr}}</style></head><body><header><h1>Rental Inspection Report</h1><div class="address">'+esc(current.address||"Untitled property")+'</div></header><div class="meta"><div><b>Inspection type</b><br>'+esc(current.type)+'</div><div><b>Date</b><br>'+esc(current.date)+'</div><div><b>Tenant</b><br>'+esc(current.tenant||"—")+'</div><div><b>Inspector</b><br>'+esc(current.inspector||"—")+'</div><div><b>Overall condition</b><br>'+esc(current.overall)+'</div><div><b>Rooms inspected</b><br>'+current.rooms.length+'</div></div>'+(current.generalNotes?'<div class="notes"><b>General notes</b><br>'+esc(current.generalNotes).replace(/\n/g,"<br>")+'</div>':"")+photoParts.join("")+'<div class="signatures"><div class="sig">'+(current.tenantSig?'<img src="tenant-signature.png">':"")+'<br><b>Tenant signature</b><br>'+esc(current.tenant||"")+'</div><div class="sig">'+(current.inspectorSig?'<img src="inspector-signature.png">':"")+'<br><b>Inspector signature</b><br>'+esc(current.inspector||"")+'</div></div></body></html>';
+}
+async function exportZip(){
+  sync();save();
+  try{await Promise.all([loadZip(),loadPdf()])}catch{return alert("Could not load the export tools. Check your internet connection.")}
+  let z=new JSZip,p=z.folder("photos"),n=0,parts=[];
+  current.rooms.forEach((r,ri)=>{
+    let imgs=[];
+    (r.photos||[]).forEach((src,pi)=>{
+      let m=src.match(/^data:image\/(\w+);base64,(.*)$/);if(!m)return;
+      let ext=m[1]=="jpeg"?"jpg":m[1],rn=(r.name||"room-"+(ri+1)).replace(/[^a-z0-9-_]+/gi,"-"),fn=String(++n).padStart(3,"0")+"-"+rn+"-"+(pi+1)+"."+ext;
+      p.file(fn,m[2],{base64:true});imgs.push('<div class="photo"><img src="photos/'+fn+'"><div class="cap">'+esc(r.name)+' — Photo '+(pi+1)+'</div></div>')
+    });
+    parts.push('<section class="room"><h2>'+esc(r.name)+'</h2><div class="status"><b>Condition:</b> '+esc(r.condition)+' &nbsp; <b>Cleanliness:</b> '+esc(r.clean)+' &nbsp; <b>Working:</b> '+esc(r.working)+'</div>'+(r.notes?'<p><b>Notes:</b> '+esc(r.notes).replace(/\n/g,"<br>")+'</p>':"")+(imgs.length?'<div class="photos">'+imgs.join("")+'</div>':'<p><i>No photos added.</i></p>')+'</section>')
+  });
+  [["tenant-signature.png",current.tenantSig],["inspector-signature.png",current.inspectorSig]].forEach(x=>{let m=(x[1]||"").match(/^data:image\/png;base64,(.*)$/);if(m)z.file(x[0],m[1],{base64:true})});
+  z.file("inspection-report.pdf",buildProfessionalPdf());
+  z.file("inspection-report.html",buildExportHtml(parts));
+  z.file("inspection-data.json",JSON.stringify(current,null,2));
+  let b=await z.generateAsync({type:"blob"}),u=URL.createObjectURL(b),a=document.createElement("a"),safe=(current.address||"rental-inspection").replace(/[^a-z0-9-_]+/gi,"-");
+  a.href=u;a.download=safe+"-"+(current.date||"inspection")+".zip";a.click();setTimeout(()=>URL.revokeObjectURL(u),1500);toast("Exported professional PDF + "+n+" photos")
+}
 function toast(t){let e=document.createElement("div");e.textContent=t;Object.assign(e.style,{position:"fixed",bottom:"24px",left:"50%",transform:"translateX(-50%)",background:"#111827",color:"#fff",padding:"10px 16px",borderRadius:"999px",zIndex:99,fontWeight:700});document.body.appendChild(e);setTimeout(()=>e.remove(),1400)}
 
 document.addEventListener("gesturestart",e=>e.preventDefault(),{passive:false});
