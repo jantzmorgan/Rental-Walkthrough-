@@ -1,4 +1,4 @@
-const CACHE="rental-walkthrough-v3";
+const CACHE="rental-walkthrough-v4";
 const FILES=["./","index.html","styles.css","app.js","manifest.json"];
 self.addEventListener("install",e=>{
   self.skipWaiting();
